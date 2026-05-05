@@ -2,55 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Synex Pay — Payment Gateway Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Synex Pay v4.0</title>
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <style>
     :root {
-      --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a25;
+      --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a25; --bg4: #222233;
       --fg: #e0e0e8; --fg2: #8888a0; --accent: #00d4ff;
       --accent2: #00ff88; --accent3: #ff6b35; --accent4: #ff3366;
       --border: #222233; --border2: #333344; --success: #00ff88;
       --warning: #ffaa00; --error: #ff3366; --info: #00d4ff;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg); color: var(--fg); min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg); color: var(--fg); min-height: 100vh; overflow-x: hidden;
     }
+    .app { display: flex; min-height: 100vh; }
     .sidebar {
-      position: fixed; left: 0; top: 0; width: 240px; height: 100vh;
+      position: fixed; left: 0; top: 0; width: 70px; height: 100vh;
       background: var(--bg2); border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; z-index: 100;
+      display: flex; flex-direction: column; z-index: 1000; transition: width 0.3s;
     }
+    .sidebar.expanded { width: 240px; }
     .logo {
-      padding: 24px 20px; border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 12px;
+      padding: 16px 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px; cursor: pointer;
     }
     .logo-icon {
-      width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--accent2));
-      border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      font-size: 20px; font-weight: bold; color: #000;
+      width: 44px; height: 44px; min-width: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: bold; color: #000;
     }
-    .logo-text { font-size: 18px; font-weight: 700; color: var(--fg); }
-    .logo-sub { font-size: 11px; color: var(--fg2); margin-top: 2px; }
-    .nav { flex: 1; padding: 12px; overflow-y: auto; }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--fg); white-space: nowrap; opacity: 0; transition: opacity 0.3s; }
+    .sidebar.expanded .logo-text { opacity: 1; }
+    .nav { flex: 1; padding: 8px 6px; overflow-y: auto; }
     .nav-item {
-      display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-      border-radius: 10px; cursor: pointer; transition: all 0.2s;
-      color: var(--fg2); font-size: 14px; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 0; padding: 14px 10px;
+      border-radius: 12px; cursor: pointer; transition: all 0.2s;
+      color: var(--fg2); font-size: 13px; margin-bottom: 4px;
+      justify-content: center; position: relative;
     }
+    .sidebar.expanded .nav-item { gap: 12px; justify-content: flex-start; padding: 14px 16px; }
     .nav-item:hover { background: var(--bg3); color: var(--fg); }
     .nav-item.active { background: var(--accent); color: #000; font-weight: 600; }
-    .nav-item .icon { width: 20px; text-align: center; font-size: 16px; }
+    .nav-item .icon { font-size: 22px; width: 30px; text-align: center; }
+    .nav-item .label { display: none; white-space: nowrap; }
+    .sidebar.expanded .nav-item .label { display: inline; }
     .nav-badge {
-      margin-left: auto; background: var(--accent4); color: #fff;
-      font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+      position: absolute; top: 8px; right: 8px;
+      background: var(--accent4); color: #fff; font-size: 9px;
+      padding: 2px 6px; border-radius: 10px; font-weight: 700; display: none;
     }
+    .nav-badge.show { display: block; }
     .status-bar {
-      padding: 16px; border-top: 1px solid var(--border);
-      font-size: 12px; color: var(--fg2);
+      padding: 12px 8px; border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--fg2); text-align: center;
     }
+    .sidebar.expanded .status-bar { text-align: left; padding: 12px 16px; }
     .status-dot {
       width: 8px; height: 8px; border-radius: 50%; background: var(--success);
       display: inline-block; margin-right: 6px; animation: pulse 2s infinite;
@@ -58,49 +68,47 @@
     .status-dot.offline { background: var(--error); animation: none; }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
     .main {
-      margin-left: 240px; min-height: 100vh; padding: 24px 32px;
+      margin-left: 70px; min-height: 100vh; padding: 16px;
+      transition: margin-left 0.3s; width: calc(100% - 70px);
     }
+    .sidebar.expanded ~ .main { margin-left: 240px; width: calc(100% - 240px); }
     .header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+      margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+      flex-wrap: wrap; gap: 12px;
     }
-    .header h1 { font-size: 24px; font-weight: 700; }
-    .header-actions { display: flex; gap: 12px; }
+    .header h1 { font-size: 22px; font-weight: 700; }
+    .header-actions { display: flex; gap: 8px; }
     .btn {
-      padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
-      font-size: 14px; font-weight: 600; transition: all 0.2s; display: inline-flex;
-      align-items: center; gap: 8px;
+      padding: 10px 18px; border-radius: 10px; border: none; cursor: pointer;
+      font-size: 14px; font-weight: 600; transition: all 0.2s;
+      display: inline-flex; align-items: center; gap: 6px;
+      touch-action: manipulation; user-select: none;
     }
+    .btn:active { transform: scale(0.96); }
     .btn-primary { background: var(--accent); color: #000; }
-    .btn-primary:hover { background: #33ddff; transform: translateY(-1px); }
     .btn-success { background: var(--success); color: #000; }
     .btn-danger { background: var(--error); color: #fff; }
     .btn-warning { background: var(--warning); color: #000; }
     .btn-secondary { background: var(--bg3); color: var(--fg); border: 1px solid var(--border2); }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-block { width: 100%; justify-content: center; }
     .card {
-      background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
-      padding: 24px; margin-bottom: 20px;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px; margin-bottom: 16px;
     }
     .card-header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
     }
-    .card-title { font-size: 16px; font-weight: 600; color: var(--fg); }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-    @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 768px) {
-      .sidebar { width: 60px; }
-      .logo-text, .logo-sub, .nav-item span:not(.icon) { display: none; }
-      .nav-item { justify-content: center; padding: 12px; }
-      .main { margin-left: 60px; padding: 16px; }
-      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-    }
+    .card-title { font-size: 15px; font-weight: 600; color: var(--fg); }
+    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 768px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .grid-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    @media (min-width: 768px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
     .stat-card {
       background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
-      padding: 20px; position: relative; overflow: hidden;
+      padding: 16px; position: relative; overflow: hidden;
     }
     .stat-card::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -109,526 +117,533 @@
     .stat-card.paid::before { background: var(--success); }
     .stat-card.pending::before { background: var(--warning); }
     .stat-card.failed::before { background: var(--error); }
-    .stat-label { font-size: 12px; color: var(--fg2); text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
-    .stat-change { font-size: 12px; margin-top: 4px; }
-    .stat-change.up { color: var(--success); }
-    .stat-change.down { color: var(--error); }
-    .form-group { margin-bottom: 16px; }
-    .form-label { display: block; font-size: 13px; color: var(--fg2); margin-bottom: 6px; font-weight: 500; }
+    .stat-label { font-size: 11px; color: var(--fg2); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 24px; font-weight: 700; margin-top: 6px; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; color: var(--fg2); margin-bottom: 6px; font-weight: 500; }
     .form-input, .form-select, .form-textarea {
       width: 100%; padding: 12px 14px; background: var(--bg3); border: 1px solid var(--border2);
-      border-radius: 8px; color: var(--fg); font-size: 14px; transition: all 0.2s;
+      border-radius: 10px; color: var(--fg); font-size: 15px; transition: all 0.2s;
+      -webkit-appearance: none; appearance: none;
     }
     .form-input:focus, .form-select:focus, .form-textarea:focus {
       outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
     }
-    .form-textarea { min-height: 100px; resize: vertical; }
+    .form-textarea { min-height: 80px; resize: vertical; }
     .input-group { display: flex; gap: 8px; }
     .input-group .form-input { flex: 1; }
+    .amount-input { font-size: 28px; font-weight: 700; text-align: center; padding: 16px; }
     .qr-container {
-      display: flex; flex-direction: column; align-items: center; gap: 16px;
-      padding: 24px; background: #fff; border-radius: 12px; margin-top: 16px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      padding: 20px; background: #fff; border-radius: 12px; margin-top: 12px;
     }
-    .qr-container img { max-width: 280px; border-radius: 8px; }
+    .qr-container img { max-width: 260px; width: 100%; border-radius: 8px; }
     .qr-info { text-align: center; color: #333; }
-    .qr-amount { font-size: 32px; font-weight: 700; color: #000; }
-    .qr-upi { font-size: 14px; color: #666; margin-top: 4px; }
-    .qr-timer { font-size: 13px; color: var(--error); margin-top: 8px; }
+    .qr-amount { font-size: 28px; font-weight: 700; color: #000; }
+    .qr-upi { font-size: 13px; color: #666; margin-top: 4px; }
+    .qr-timer { font-size: 14px; color: #ff4444; margin-top: 8px; font-weight: 600; }
     .payment-link {
       background: var(--bg3); padding: 12px; border-radius: 8px;
-      font-family: monospace; font-size: 13px; word-break: break-all;
+      font-family: monospace; font-size: 12px; word-break: break-all;
       border: 1px dashed var(--border2); cursor: pointer;
     }
-    .payment-link:hover { border-color: var(--accent); }
-    .table-container { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { text-align: left; padding: 12px 16px; color: var(--fg2); font-weight: 500;
+    .payment-id-box {
+      background: var(--bg3); padding: 12px; border-radius: 8px;
+      font-family: monospace; font-size: 12px; word-break: break-all;
+    }
+    .upi-apps { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .upi-app-btn {
+      display: flex; align-items: center; gap: 6px; padding: 10px 14px;
+      background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px;
+      color: var(--fg); text-decoration: none; font-size: 13px; transition: all 0.2s;
+      flex: 1; justify-content: center; min-width: 100px;
+    }
+    .upi-app-btn:active { background: var(--accent); color: #000; }
+    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 600px; }
+    th { text-align: left; padding: 10px 12px; color: var(--fg2); font-weight: 500;
       border-bottom: 1px solid var(--border); white-space: nowrap; }
-    td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
-    tr:hover td { background: var(--bg3); }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    tr:active td { background: var(--bg3); }
     .badge {
       display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
-      border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+      border-radius: 20px; font-size: 10px; font-weight: 600; text-transform: uppercase;
     }
     .badge-success { background: rgba(0,255,136,0.15); color: var(--success); }
     .badge-pending { background: rgba(255,170,0,0.15); color: var(--warning); }
     .badge-failed { background: rgba(255,51,102,0.15); color: var(--error); }
     .badge-expired { background: rgba(136,136,160,0.15); color: var(--fg2); }
-    .badge-refunded { background: rgba(0,212,255,0.15); color: var(--accent); }
     .tab-content { display: none; }
     .tab-content.active { display: block; animation: fadeIn 0.3s; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; max-width: 90vw; }
     .toast {
-      padding: 14px 20px; border-radius: 10px; font-size: 14px; font-weight: 500;
-      animation: slideIn 0.3s; max-width: 400px; word-break: break-word;
-      display: flex; align-items: center; gap: 10px;
+      padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 500;
+      animation: slideIn 0.3s; word-break: break-word;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
     }
     .toast-success { background: var(--success); color: #000; }
     .toast-error { background: var(--error); color: #fff; }
     .toast-warning { background: var(--warning); color: #000; }
     .toast-info { background: var(--accent); color: #000; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: none;
-      align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: none;
+      align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 16px; }
     .modal-overlay.active { display: flex; }
     .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
-      width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    .modal-body { padding: 24px; }
-    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px; }
-    .close-btn { background: none; border: none; color: var(--fg2); font-size: 24px; cursor: pointer; }
-    .close-btn:hover { color: var(--fg); }
-    .progress-bar { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-    .progress-bar-fill { height: 100%; background: var(--accent); transition: width 0.3s; border-radius: 2px; }
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--fg2); }
-    .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
-    .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--fg); }
+      width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+    .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 20px; }
+    .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+    .close-btn { background: none; border: none; color: var(--fg2); font-size: 28px; cursor: pointer; padding: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+    .close-btn:active { background: var(--bg3); }
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--fg2); }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
     .search-box { position: relative; }
     .search-box .form-input { padding-left: 40px; }
-    .search-box .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--fg2); }
-    .filters { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--fg2); font-size: 14px; }
+    .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; overflow-x: auto; }
     .filter-chip {
       padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer;
       border: 1px solid var(--border2); background: var(--bg3); color: var(--fg2);
-      transition: all 0.2s;
+      transition: all 0.2s; white-space: nowrap; touch-action: manipulation;
     }
-    .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-chip:active { transform: scale(0.95); }
     .filter-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
-    .copy-btn { padding: 6px 12px; font-size: 12px; }
-    .timer { font-family: monospace; font-size: 18px; font-weight: 600; color: var(--warning); }
-    .upi-apps { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-    .upi-app-btn {
-      display: flex; align-items: center; gap: 8px; padding: 10px 16px;
-      background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px;
-      color: var(--fg); text-decoration: none; font-size: 13px; transition: all 0.2s;
-    }
-    .upi-app-btn:hover { border-color: var(--accent); background: var(--bg); }
-    .config-section { margin-bottom: 24px; }
-    .config-section h3 { font-size: 14px; color: var(--fg2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .copy-btn { padding: 8px 12px; font-size: 12px; }
+    .timeline { position: relative; padding-left: 20px; }
+    .timeline::before { content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 2px; background: var(--border2); }
+    .timeline-item { position: relative; margin-bottom: 12px; }
+    .timeline-item::before { content: ''; position: absolute; left: -18px; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg2); }
+    .timeline-item.success::before { background: var(--success); }
+    .timeline-item.error::before { background: var(--error); }
+    .timeline-time { font-size: 10px; color: var(--fg2); }
+    .timeline-text { font-size: 12px; margin-top: 2px; }
+    .action-btns { display: flex; gap: 6px; }
+    .action-btns .btn { padding: 6px 10px; font-size: 11px; }
+    .pagination { display: flex; justify-content: center; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+    .page-btn { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border2); background: var(--bg3); color: var(--fg); cursor: pointer; font-size: 12px; touch-action: manipulation; }
+    .page-btn:active { background: var(--accent); color: #000; }
+    .page-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .socket-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+    .socket-status.connected { color: var(--success); }
+    .socket-status.disconnected { color: var(--error); }
     .log-entry {
-      padding: 10px 14px; border-radius: 8px; background: var(--bg3); margin-bottom: 8px;
-      font-family: monospace; font-size: 12px; border-left: 3px solid var(--accent);
+      padding: 10px 12px; border-radius: 8px; background: var(--bg3); margin-bottom: 6px;
+      font-family: monospace; font-size: 11px; border-left: 3px solid var(--accent);
     }
     .log-entry.error { border-left-color: var(--error); }
     .log-entry.success { border-left-color: var(--success); }
     .log-entry.warn { border-left-color: var(--warning); }
-    .log-time { color: var(--fg2); font-size: 11px; }
-    .checkbox-group { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .log-time { color: var(--fg2); font-size: 10px; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .checkbox-group input { width: 18px; height: 18px; accent-color: var(--accent); }
     .slider { width: 100%; -webkit-appearance: none; height: 6px; border-radius: 3px; background: var(--bg3); outline: none; }
-    .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; }
-    .color-picker { width: 40px; height: 40px; border: none; border-radius: 8px; cursor: pointer; background: none; }
-    .preview-box {
-      padding: 20px; border-radius: 12px; background: var(--bg3); border: 1px solid var(--border);
-      text-align: center; margin-top: 12px;
+    .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+    .config-section { margin-bottom: 20px; }
+    .config-section h3 { font-size: 12px; color: var(--fg2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .waiting-box { text-align: center; padding: 32px 16px; }
+    .waiting-box .emoji { font-size: 48px; margin-bottom: 12px; }
+    .waiting-box p { color: var(--fg2); font-size: 14px; margin-bottom: 4px; }
+    .success-box { text-align: center; padding: 32px 16px; }
+    .success-box .emoji { font-size: 56px; margin-bottom: 12px; }
+    .success-box h2 { color: var(--success); margin-bottom: 8px; }
+    .expired-box { text-align: center; padding: 32px 16px; }
+    .expired-box .emoji { font-size: 56px; margin-bottom: 12px; }
+    .expired-box h2 { color: var(--warning); margin-bottom: 8px; }
+    .toggle-btn {
+      position: fixed; bottom: 20px; left: 80px; z-index: 999;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--accent); color: #000; border: none;
+      font-size: 20px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      box-shadow: 0 4px 15px rgba(0,212,255,0.3);
     }
-    .spinner { width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .socket-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
-    .socket-status.connected { color: var(--success); }
-    .socket-status.disconnected { color: var(--error); }
-    .amount-input { font-size: 24px; font-weight: 700; text-align: center; }
-    .payment-id-box { background: var(--bg3); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; word-break: break-all; }
-    .timeline { position: relative; padding-left: 24px; }
-    .timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--border2); }
-    .timeline-item { position: relative; margin-bottom: 16px; }
-    .timeline-item::before { content: ''; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg2); }
-    .timeline-item.success::before { background: var(--success); }
-    .timeline-item.error::before { background: var(--error); }
-    .timeline-time { font-size: 11px; color: var(--fg2); }
-    .timeline-text { font-size: 13px; margin-top: 2px; }
-    .action-btns { display: flex; gap: 8px; }
-    .action-btns .btn { padding: 6px 12px; font-size: 12px; }
-    .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
-    .page-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border2); background: var(--bg3); color: var(--fg); cursor: pointer; font-size: 13px; }
-    .page-btn:hover { border-color: var(--accent); }
-    .page-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
-    .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .sidebar.expanded ~ .main .toggle-btn { left: 250px; }
+    .color-picker { width: 40px; height: 40px; border: none; border-radius: 8px; cursor: pointer; background: none; padding: 0; }
   </style>
 </head>
 <body>
   <div class="toast-container" id="toastContainer"></div>
 
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="logo">
-      <div class="logo-icon">S</div>
-      <div>
+  <div class="app">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="logo" onclick="toggleSidebar()">
+        <div class="logo-icon">S</div>
         <div class="logo-text">Synex Pay</div>
-        <div class="logo-sub">v4.0 Dashboard</div>
       </div>
-    </div>
-    <div class="nav">
-      <div class="nav-item active" data-tab="extract" onclick="switchTab('extract')">
-        <span class="icon">&#128176;</span><span>Extract</span>
-      </div>
-      <div class="nav-item" data-tab="manage" onclick="switchTab('manage')">
-        <span class="icon">&#128202;</span><span>Manage</span>
-        <span class="nav-badge" id="pendingBadge" style="display:none">0</span>
-      </div>
-      <div class="nav-item" data-tab="push" onclick="switchTab('push')">
-        <span class="icon">&#128640;</span><span>Push</span>
-      </div>
-      <div class="nav-item" data-tab="cleanup" onclick="switchTab('cleanup')">
-        <span class="icon">&#129529;</span><span>Cleanup</span>
-      </div>
-      <div class="nav-item" data-tab="backend" onclick="switchTab('backend')">
-        <span class="icon">&#9881;&#65039;</span><span>Backend Deploy</span>
-      </div>
-      <div class="nav-item" data-tab="build" onclick="switchTab('build')">
-        <span class="icon">&#128230;</span><span>Frontend Build</span>
-      </div>
-    </div>
-    <div class="status-bar">
-      <div><span class="status-dot" id="backendDot"></span><span id="backendStatus">Checking...</span></div>
-      <div class="socket-status disconnected" id="socketStatus" style="margin-top:6px"><span class="spinner" style="width:10px;height:10px;border-width:1px"></span> Socket: Connecting...</div>
-      <div style="margin-top:8px; font-size:11px; color:var(--fg2)">
-        <span id="statsTotal">0</span> payments<br>
-        <span id="statsRevenue">&#8377;0.00</span> revenue
-      </div>
-    </div>
-  </div>
-
-  <!-- Main Content -->
-  <div class="main">
-
-    <!-- TAB: EXTRACT -->
-    <div class="tab-content active" id="tab-extract">
-      <div class="header">
-        <h1>&#128176; Create Payment</h1>
-        <div class="header-actions">
-          <button class="btn btn-secondary" onclick="resetPaymentForm()">&#128260; Reset</button>
+      <div class="nav">
+        <div class="nav-item active" data-tab="extract">
+          <span class="icon">&#128176;</span>
+          <span class="label">Extract</span>
+        </div>
+        <div class="nav-item" data-tab="manage">
+          <span class="icon">&#128202;</span>
+          <span class="label">Manage</span>
+          <span class="nav-badge" id="pendingBadge">0</span>
+        </div>
+        <div class="nav-item" data-tab="push">
+          <span class="icon">&#128640;</span>
+          <span class="label">Push</span>
+        </div>
+        <div class="nav-item" data-tab="cleanup">
+          <span class="icon">&#129529;</span>
+          <span class="label">Cleanup</span>
+        </div>
+        <div class="nav-item" data-tab="backend">
+          <span class="icon">&#9881;&#65039;</span>
+          <span class="label">Backend</span>
+        </div>
+        <div class="nav-item" data-tab="build">
+          <span class="icon">&#128230;</span>
+          <span class="label">Build</span>
         </div>
       </div>
+      <div class="status-bar">
+        <div><span class="status-dot" id="backendDot"></span><span id="backendStatus">...</span></div>
+        <div class="socket-status disconnected" id="socketStatus" style="margin-top:4px">
+          <span class="spinner" style="width:10px;height:10px;border-width:1px"></span> Socket
+        </div>
+        <div style="margin-top:6px; font-size:10px; color:var(--fg2)">
+          <span id="statsTotal">0</span> payments | <span id="statsRevenue">&#8377;0</span>
+        </div>
+      </div>
+    </div>
 
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div class="card-title">Payment Details</div></div>
-          <div class="form-group">
-            <label class="form-label">Amount (&#8377;)</label>
-            <input type="number" class="form-input amount-input" id="payAmount" placeholder="0.00" min="1" max="100000" step="0.01">
+    <button class="toggle-btn" onclick="toggleSidebar()" id="toggleBtn">&#9776;</button>
+
+    <!-- Main Content -->
+    <div class="main">
+
+      <!-- TAB: EXTRACT -->
+      <div class="tab-content active" id="tab-extract">
+        <div class="header">
+          <h1>&#128176; Create Payment</h1>
+          <button class="btn btn-secondary" id="btnResetPay">&#128260; Reset</button>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Payment Details</div></div>
+            <div class="form-group">
+              <label class="form-label">Amount (&#8377;)</label>
+              <input type="number" class="form-input amount-input" id="payAmount" placeholder="0.00" min="1" max="100000" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Note / Description</label>
+              <input type="text" class="form-input" id="payNote" placeholder="Payment for..." maxlength="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Customer Name</label>
+              <input type="text" class="form-input" id="payCustomerName" placeholder="Optional">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Customer Phone</label>
+              <input type="tel" class="form-input" id="payCustomerPhone" placeholder="+91...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Customer Email</label>
+              <input type="email" class="form-input" id="payCustomerEmail" placeholder="optional@email.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Expiry (minutes)</label>
+              <input type="range" class="slider" id="payExpiry" min="5" max="60" value="30">
+              <div style="text-align:center; margin-top:4px; font-size:12px; color:var(--fg2)"><span id="expiryVal">30 min</span></div>
+            </div>
+            <button class="btn btn-primary btn-block" id="btnCreatePay">
+              <span id="createPaySpinner" style="display:none"><span class="spinner"></span></span>
+              <span id="createPayText">&#128640; Generate Payment</span>
+            </button>
           </div>
-          <div class="form-group">
-            <label class="form-label">Note / Description</label>
-            <input type="text" class="form-input" id="payNote" placeholder="Payment for..." maxlength="100">
+
+          <div class="card" id="qrCard" style="display:none">
+            <div class="card-header"><div class="card-title">Payment QR Code</div></div>
+            <div class="qr-container">
+              <img id="qrImage" src="" alt="UPI QR Code">
+              <div class="qr-info">
+                <div class="qr-amount" id="qrAmount">&#8377;0.00</div>
+                <div class="qr-upi" id="qrUpi">UPI ID: aqdaskhan03@fam</div>
+                <div class="qr-timer" id="qrTimer">&#9201; Expires in 30:00</div>
+              </div>
+            </div>
+            <div style="margin-top:14px">
+              <div class="form-label">Payment Link</div>
+              <div class="payment-link" id="payLink"></div>
+            </div>
+            <div style="margin-top:12px">
+              <div class="form-label">Payment ID</div>
+              <div class="payment-id-box" id="payIdDisplay"></div>
+            </div>
+            <div class="upi-apps">
+              <a href="#" class="upi-app-btn" id="phonePeBtn" target="_blank">&#128241; PhonePe</a>
+              <a href="#" class="upi-app-btn" id="gPayBtn" target="_blank">&#128179; GPay</a>
+              <a href="#" class="upi-app-btn" id="paytmBtn" target="_blank">&#128176; Paytm</a>
+              <a href="#" class="upi-app-btn" id="upiIntentBtn" target="_blank">&#128279; UPI</a>
+            </div>
+            <div class="timeline" id="paymentTimeline" style="margin-top:16px"></div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Customer Name</label>
-            <input type="text" class="form-input" id="payCustomerName" placeholder="Optional">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Customer Phone</label>
-            <input type="tel" class="form-input" id="payCustomerPhone" placeholder="+91...">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Customer Email</label>
-            <input type="email" class="form-input" id="payCustomerEmail" placeholder="optional@email.com">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Expiry (minutes)</label>
-            <input type="range" class="slider" id="payExpiry" min="5" max="60" value="30" oninput="document.getElementById('expiryVal').textContent=this.value+' min'">
-            <div style="text-align:center; margin-top:4px; font-size:12px; color:var(--fg2)"><span id="expiryVal">30 min</span></div>
-          </div>
-          <button class="btn btn-primary" style="width:100%; margin-top:8px" id="createPayBtn" onclick="createPayment()">
-            <span id="createPaySpinner" style="display:none"><span class="spinner"></span></span>
-            <span id="createPayText">&#128640; Generate Payment</span>
-          </button>
         </div>
 
-        <div class="card" id="qrCard" style="display:none">
-          <div class="card-header"><div class="card-title">Payment QR Code</div></div>
-          <div class="qr-container">
-            <img id="qrImage" src="" alt="UPI QR Code">
-            <div class="qr-info">
-              <div class="qr-amount" id="qrAmount">&#8377;0.00</div>
-              <div class="qr-upi" id="qrUpi">UPI ID: aqdaskhan03@fam</div>
-              <div class="qr-timer" id="qrTimer">&#9201; Expires in 30:00</div>
+        <div class="card" id="activePaymentCard" style="display:none">
+          <div class="card-header">
+            <div class="card-title">&#9203; Waiting for Payment...</div>
+            <div class="socket-status disconnected" id="pollStatus">
+              <span class="spinner" style="width:10px;height:10px;border-width:1px"></span> Polling
             </div>
           </div>
-          <div style="margin-top:16px">
-            <div class="form-label">Payment Link</div>
-            <div class="payment-link" id="payLink" onclick="copyText(this.textContent)"></div>
-          </div>
-          <div style="margin-top:12px">
-            <div class="form-label">Payment ID</div>
-            <div class="payment-id-box" id="payIdDisplay"></div>
-          </div>
-          <div class="upi-apps">
-            <a href="#" class="upi-app-btn" id="phonePeBtn" target="_blank">&#128241; PhonePe</a>
-            <a href="#" class="upi-app-btn" id="gPayBtn" target="_blank">&#128179; GPay</a>
-            <a href="#" class="upi-app-btn" id="paytmBtn" target="_blank">&#128176; Paytm</a>
-            <a href="#" class="upi-app-btn" id="upiIntentBtn" target="_blank">&#128279; UPI Intent</a>
-          </div>
-          <div class="timeline" id="paymentTimeline" style="margin-top:20px"></div>
-        </div>
-      </div>
-
-      <div class="card" id="activePaymentCard" style="display:none">
-        <div class="card-header">
-          <div class="card-title">&#9203; Waiting for Payment...</div>
-          <div class="socket-status disconnected" id="pollStatus"><span class="spinner" style="width:10px;height:10px;border-width:1px"></span> Polling...</div>
-        </div>
-        <div style="text-align:center; padding:40px">
-          <div style="font-size:48px; margin-bottom:16px">&#128242;</div>
-          <p style="color:var(--fg2); margin-bottom:8px">Scan QR code or use UPI app to pay</p>
-          <p style="font-size:14px; color:var(--fg2)">Auto-confirmation via SMS Forwarder active</p>
-          <div style="margin-top:20px">
-            <button class="btn btn-success" onclick="simulatePayment()">&#129514; Simulate Payment</button>
-            <button class="btn btn-danger" onclick="cancelPayment()" style="margin-left:8px">&#10060; Cancel</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: MANAGE -->
-    <div class="tab-content" id="tab-manage">
-      <div class="header">
-        <h1>&#128202; Manage Payments</h1>
-        <div class="header-actions">
-          <button class="btn btn-secondary" onclick="loadPayments()">&#128260; Refresh</button>
-          <button class="btn btn-primary" onclick="exportPayments()">&#128229; Export CSV</button>
-        </div>
-      </div>
-
-      <div class="grid-4">
-        <div class="stat-card"><div class="stat-label">Total Payments</div><div class="stat-value" id="statTotal">0</div></div>
-        <div class="stat-card paid"><div class="stat-label">Paid</div><div class="stat-value" id="statPaid">0</div><div class="stat-change up" id="statPaidAmt">&#8377;0</div></div>
-        <div class="stat-card pending"><div class="stat-label">Pending</div><div class="stat-value" id="statPending">0</div></div>
-        <div class="stat-card failed"><div class="stat-label">Failed/Expired</div><div class="stat-value" id="statFailed">0</div></div>
-      </div>
-
-      <div class="card">
-        <div class="filters">
-          <div class="filter-chip active" data-filter="all" onclick="filterPayments('all')">All</div>
-          <div class="filter-chip" data-filter="pending" onclick="filterPayments('pending')">Pending</div>
-          <div class="filter-chip" data-filter="paid" onclick="filterPayments('paid')">Paid</div>
-          <div class="filter-chip" data-filter="failed" onclick="filterPayments('failed')">Failed</div>
-          <div class="filter-chip" data-filter="expired" onclick="filterPayments('expired')">Expired</div>
-          <div class="filter-chip" data-filter="refunded" onclick="filterPayments('refunded')">Refunded</div>
-        </div>
-        <div class="search-box" style="margin-bottom:16px">
-          <span class="search-icon">&#128269;</span>
-          <input type="text" class="form-input" id="paySearch" placeholder="Search by ID, amount, UTR..." oninput="searchPayments()">
-        </div>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th><th>Amount</th><th>Status</th><th>Customer</th><th>UTR</th><th>Created</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="paymentsTable"></tbody>
-          </table>
-        </div>
-        <div class="pagination" id="paymentsPagination"></div>
-        <div class="empty-state" id="paymentsEmpty" style="display:none">
-          <div class="icon">&#128236;</div>
-          <h3>No payments found</h3>
-          <p>Create a payment from the Extract tab</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB: PUSH -->
-    <div class="tab-content" id="tab-push">
-      <div class="header"><h1>&#128640; Push / Manual Verify</h1></div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div class="card-title">Manual Payment Verification</div></div>
-          <div class="form-group">
-            <label class="form-label">Payment ID</label>
-            <input type="text" class="form-input" id="pushPaymentId" placeholder="pay_xxxxxxxx">
-          </div>
-          <div class="form-group">
-            <label class="form-label">UTR / Reference Number</label>
-            <input type="text" class="form-input" id="pushUtr" placeholder="12-digit UTR">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Note (optional)</label>
-            <input type="text" class="form-input" id="pushNote" placeholder="Manual verification note">
-          </div>
-          <button class="btn btn-success" style="width:100%" onclick="manualConfirm()">&#9989; Confirm Payment</button>
-        </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">Bulk Operations</div></div>
-          <div class="form-group">
-            <label class="form-label">Payment IDs (comma separated)</label>
-            <textarea class="form-textarea" id="bulkIds" placeholder="pay_xxx, pay_yyy, pay_zzz"></textarea>
-          </div>
-          <div style="display:flex; gap:8px">
-            <button class="btn btn-success" style="flex:1" onclick="bulkConfirm()">&#9989; Bulk Confirm</button>
-            <button class="btn btn-warning" style="flex:1" onclick="bulkExpire()">&#9200; Bulk Expire</button>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Recent Activity Log</div></div>
-        <div id="pushLogs"></div>
-      </div>
-    </div>
-
-    <!-- TAB: CLEANUP -->
-    <div class="tab-content" id="tab-cleanup">
-      <div class="header"><h1>&#129529; Cleanup</h1></div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div class="card-title">Expired Payments</div></div>
-          <p style="color:var(--fg2); margin-bottom:16px; font-size:14px">Remove old expired/failed payments from the system</p>
-          <div class="form-group">
-            <label class="form-label">Delete payments older than</label>
-            <select class="form-select" id="cleanupDays">
-              <option value="1">1 day</option>
-              <option value="3">3 days</option>
-              <option value="7" selected>7 days</option>
-              <option value="14">14 days</option>
-              <option value="30">30 days</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Status to cleanup</label>
-            <div style="display:flex; gap:16px; margin-top:8px">
-              <label class="checkbox-group"><input type="checkbox" id="cleanupExpired" checked> Expired</label>
-              <label class="checkbox-group"><input type="checkbox" id="cleanupFailed" checked> Failed</label>
-              <label class="checkbox-group"><input type="checkbox" id="cleanupPending"> Pending (danger)</label>
+          <div class="waiting-box">
+            <div class="emoji">&#128242;</div>
+            <p>Scan QR code or use UPI app to pay</p>
+            <p style="font-size:13px">Auto-confirmation via SMS Forwarder</p>
+            <div style="margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap">
+              <button class="btn btn-success" id="btnSimulate">&#129514; Simulate</button>
+              <button class="btn btn-danger" id="btnCancel">&#10060; Cancel</button>
             </div>
           </div>
-          <button class="btn btn-danger" style="width:100%" onclick="runCleanup()">&#128465;&#65039; Run Cleanup</button>
-        </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">System Stats</div></div>
-          <div id="cleanupStats"></div>
         </div>
       </div>
-    </div>
 
-    <!-- TAB: BACKEND DEPLOY -->
-    <div class="tab-content" id="tab-backend">
-      <div class="header"><h1>&#9881;&#65039; Backend Configuration</h1></div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div class="card-title">Connection Settings</div></div>
-          <div class="form-group">
-            <label class="form-label">Backend URL</label>
-            <input type="url" class="form-input" id="backendUrl" value="https://our-payment-gateway.onrender.com" placeholder="https://your-api.com">
-          </div>
-          <div class="form-group">
-            <label class="form-label">API Key (X-Api-Key)</label>
-            <div class="input-group">
-              <input type="password" class="form-input" id="apiKey" placeholder="sk_synex_...">
-              <button class="btn btn-secondary copy-btn" onclick="toggleApiKeyVisibility()">&#128065;</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Admin Key (X-Admin-Key)</label>
-            <div class="input-group">
-              <input type="password" class="form-input" id="adminKey" placeholder="admin_synex_...">
-              <button class="btn btn-secondary copy-btn" onclick="toggleAdminKeyVisibility()">&#128065;</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Webhook Secret (for SMS Forwarder)</label>
-            <input type="text" class="form-input" id="webhookSecret" placeholder="synex_secret_2026" value="synex_secret_2026">
-          </div>
-          <div style="display:flex; gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="saveConfig()">&#128190; Save Config</button>
-            <button class="btn btn-secondary" style="flex:1" onclick="testConnection()">&#128279; Test Connection</button>
+      <!-- TAB: MANAGE -->
+      <div class="tab-content" id="tab-manage">
+        <div class="header">
+          <h1>&#128202; Manage Payments</h1>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btnRefresh">&#128260; Refresh</button>
+            <button class="btn btn-primary" id="btnExportCsv">&#128229; Export</button>
           </div>
         </div>
+        <div class="grid-4">
+          <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="statTotal">0</div></div>
+          <div class="stat-card paid"><div class="stat-label">Paid</div><div class="stat-value" id="statPaid">0</div></div>
+          <div class="stat-card pending"><div class="stat-label">Pending</div><div class="stat-value" id="statPending">0</div></div>
+          <div class="stat-card failed"><div class="stat-label">Failed</div><div class="stat-value" id="statFailed">0</div></div>
+        </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">Connection Status</div></div>
-          <div id="connectionStatus" style="text-align:center; padding:20px">
-            <div style="font-size:48px; margin-bottom:12px" id="connIcon">&#10067;</div>
-            <div style="font-size:16px; font-weight:600" id="connText">Not tested</div>
-            <div style="font-size:13px; color:var(--fg2); margin-top:8px" id="connDetail">Click Test Connection to verify</div>
+          <div class="filters">
+            <div class="filter-chip active" data-filter="all">All</div>
+            <div class="filter-chip" data-filter="pending">Pending</div>
+            <div class="filter-chip" data-filter="paid">Paid</div>
+            <div class="filter-chip" data-filter="failed">Failed</div>
+            <div class="filter-chip" data-filter="expired">Expired</div>
+            <div class="filter-chip" data-filter="refunded">Refunded</div>
           </div>
-          <div style="margin-top:16px">
-            <div class="form-label">Quick Actions</div>
-            <button class="btn btn-secondary" style="width:100%; margin-bottom:8px" onclick="fetchHealth()">&#127973; Health Check</button>
-            <button class="btn btn-secondary" style="width:100%; margin-bottom:8px" onclick="fetchAnalytics()">&#128202; Fetch Analytics</button>
-            <button class="btn btn-secondary" style="width:100%" onclick="fetchApiKeys()">&#128273; List API Keys</button>
+          <div class="search-box" style="margin-bottom:12px">
+            <span class="search-icon">&#128269;</span>
+            <input type="text" class="form-input" id="paySearch" placeholder="Search by ID, amount, UTR...">
+          </div>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>ID</th><th>Amount</th><th>Status</th><th>Customer</th><th>UTR</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody id="paymentsTable"></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="paymentsPagination"></div>
+          <div class="empty-state" id="paymentsEmpty" style="display:none">
+            <div class="icon">&#128236;</div>
+            <h3>No payments found</h3>
+            <p>Create a payment from Extract tab</p>
           </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Webhook Setup for SMS Forwarder</div></div>
-        <div style="background:var(--bg3); padding:16px; border-radius:8px; font-family:monospace; font-size:13px; word-break:break-all" id="webhookUrlDisplay">
-          https://our-payment-gateway.onrender.com/webhook
-        </div>
-        <p style="color:var(--fg2); font-size:13px; margin-top:12px">
-          &#128241; <strong>SMS Forwarder App Settings:</strong><br>
-          &#8226; URL: <code id="smsForwarderUrl">https://our-payment-gateway.onrender.com/webhook</code><br>
-          &#8226; Method: POST<br>
-          &#8226; Content-Type: application/json<br>
-          &#8226; Body: <code>{"body": "{{message}}", "from": "{{app_name}}", "source": "NOTIFICATION"}</code><br>
-          &#8226; No authentication required for <code>/webhook</code> endpoint
-        </p>
-        <button class="btn btn-secondary copy-btn" style="margin-top:12px" onclick="copyWebhookUrl()">&#128203; Copy Webhook URL</button>
-      </div>
-    </div>
 
-    <!-- TAB: FRONTEND BUILD -->
-    <div class="tab-content" id="tab-build">
-      <div class="header"><h1>&#128230; Frontend Build & Settings</h1></div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div class="card-title">Appearance</div></div>
-          <div class="config-section">
-            <h3>Theme Colors</h3>
-            <div style="display:flex; gap:16px; align-items:center">
-              <div><label class="form-label">Primary</label><input type="color" class="color-picker" id="primaryColor" value="#00d4ff"></div>
-              <div><label class="form-label">Success</label><input type="color" class="color-picker" id="successColor" value="#00ff88"></div>
-              <div><label class="form-label">Danger</label><input type="color" class="color-picker" id="dangerColor" value="#ff3366"></div>
+      <!-- TAB: PUSH -->
+      <div class="tab-content" id="tab-push">
+        <div class="header"><h1>&#128640; Push / Verify</h1></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Manual Verify</div></div>
+            <div class="form-group">
+              <label class="form-label">Payment ID</label>
+              <input type="text" class="form-input" id="pushPaymentId" placeholder="pay_xxxxxxxx">
+            </div>
+            <div class="form-group">
+              <label class="form-label">UTR / Reference</label>
+              <input type="text" class="form-input" id="pushUtr" placeholder="12-digit UTR">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Note</label>
+              <input type="text" class="form-input" id="pushNote" placeholder="Optional note">
+            </div>
+            <button class="btn btn-success btn-block" id="btnManualConfirm">&#9989; Confirm Payment</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Bulk Operations</div></div>
+            <div class="form-group">
+              <label class="form-label">Payment IDs (comma separated)</label>
+              <textarea class="form-textarea" id="bulkIds" placeholder="pay_xxx, pay_yyy"></textarea>
+            </div>
+            <div style="display:flex; gap:8px">
+              <button class="btn btn-success" style="flex:1" id="btnBulkConfirm">&#9989; Confirm</button>
+              <button class="btn btn-warning" style="flex:1" id="btnBulkExpire">&#9200; Expire</button>
             </div>
           </div>
-          <div class="config-section">
-            <h3>Dashboard</h3>
-            <label class="checkbox-group" style="margin-bottom:8px"><input type="checkbox" id="showRevenue" checked> Show revenue in sidebar</label>
-            <label class="checkbox-group" style="margin-bottom:8px"><input type="checkbox" id="autoRefresh" checked> Auto-refresh payments list</label>
-            <label class="checkbox-group" style="margin-bottom:8px"><input type="checkbox" id="soundAlerts"> Sound alerts on payment</label>
-            <label class="checkbox-group"><input type="checkbox" id="darkMode" checked> Dark mode (always on)</label>
-          </div>
-          <button class="btn btn-primary" style="width:100%" onclick="saveAppearance()">&#128190; Save Settings</button>
         </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">Export / Import</div></div>
-          <div class="config-section">
-            <h3>Export Configuration</h3>
-            <button class="btn btn-secondary" style="width:100%; margin-bottom:8px" onclick="exportConfig()">&#128228; Export Settings (JSON)</button>
-            <button class="btn btn-secondary" style="width:100%" onclick="exportPaymentsJson()">&#128228; Export Payments (JSON)</button>
+          <div class="card-header"><div class="card-title">Activity Log</div></div>
+          <div id="pushLogs"></div>
+        </div>
+      </div>
+
+      <!-- TAB: CLEANUP -->
+      <div class="tab-content" id="tab-cleanup">
+        <div class="header"><h1>&#129529; Cleanup</h1></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Remove Old Payments</div></div>
+            <p style="color:var(--fg2); margin-bottom:14px; font-size:13px">Delete expired/failed payments older than selected days</p>
+            <div class="form-group">
+              <label class="form-label">Older than</label>
+              <select class="form-select" id="cleanupDays">
+                <option value="1">1 day</option>
+                <option value="3">3 days</option>
+                <option value="7" selected>7 days</option>
+                <option value="14">14 days</option>
+                <option value="30">30 days</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <div style="display:flex; gap:14px; margin-top:6px; flex-wrap:wrap">
+                <label class="checkbox-group"><input type="checkbox" id="cleanupExpired" checked> Expired</label>
+                <label class="checkbox-group"><input type="checkbox" id="cleanupFailed" checked> Failed</label>
+                <label class="checkbox-group"><input type="checkbox" id="cleanupPending"> Pending</label>
+              </div>
+            </div>
+            <button class="btn btn-danger btn-block" id="btnCleanup">&#128465;&#65039; Run Cleanup</button>
           </div>
-          <div class="config-section">
-            <h3>Import Configuration</h3>
-            <input type="file" id="configFile" accept=".json" style="display:none" onchange="importConfig(event)">
-            <button class="btn btn-secondary" style="width:100%" onclick="document.getElementById('configFile').click()">&#128229; Import Settings</button>
-          </div>
-          <div class="config-section">
-            <h3>Reset</h3>
-            <button class="btn btn-danger" style="width:100%" onclick="resetAllData()">&#9888;&#65039; Reset All Data</button>
+          <div class="card">
+            <div class="card-header"><div class="card-title">System Stats</div></div>
+            <div id="cleanupStats"></div>
           </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">About Synex Pay Dashboard</div></div>
-        <div style="color:var(--fg2); font-size:14px; line-height:1.8">
-          <p><strong>Version:</strong> 4.0.0</p>
-          <p><strong>Backend:</strong> Synex Pay Enterprise UPI Gateway</p>
-          <p><strong>Features:</strong> Auto-approval via SMS Forwarder, Real-time Socket.io, Webhook support, Analytics</p>
-          <p><strong>Merchant:</strong> <span id="aboutMerchant">Synex Pay</span></p>
-          <p><strong>UPI ID:</strong> <span id="aboutUpi">aqdaskhan03@fam</span></p>
-          <p style="margin-top:12px"><strong>Connected:</strong> <span id="aboutConnected" style="color:var(--error)">&#10060; Not connected</span></p>
+
+      <!-- TAB: BACKEND -->
+      <div class="tab-content" id="tab-backend">
+        <div class="header"><h1>&#9881;&#65039; Backend</h1></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Connection</div></div>
+            <div class="form-group">
+              <label class="form-label">Backend URL</label>
+              <input type="url" class="form-input" id="backendUrl" value="https://our-payment-gateway.onrender.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">API Key</label>
+              <div class="input-group">
+                <input type="password" class="form-input" id="apiKey" placeholder="sk_synex_...">
+                <button class="btn btn-secondary copy-btn" id="btnToggleApiKey">&#128065;</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Admin Key</label>
+              <div class="input-group">
+                <input type="password" class="form-input" id="adminKey" placeholder="admin_synex_...">
+                <button class="btn btn-secondary copy-btn" id="btnToggleAdminKey">&#128065;</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Webhook Secret</label>
+              <input type="text" class="form-input" id="webhookSecret" value="synex_secret_2026">
+            </div>
+            <div style="display:flex; gap:8px">
+              <button class="btn btn-primary" style="flex:1" id="btnSaveConfig">&#128190; Save</button>
+              <button class="btn btn-secondary" style="flex:1" id="btnTestConn">&#128279; Test</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Status</div></div>
+            <div style="text-align:center; padding:16px">
+              <div style="font-size:44px; margin-bottom:10px" id="connIcon">&#10067;</div>
+              <div style="font-size:15px; font-weight:600" id="connText">Not tested</div>
+              <div style="font-size:12px; color:var(--fg2); margin-top:6px" id="connDetail">Click Test to verify</div>
+            </div>
+            <div style="margin-top:12px">
+              <div class="form-label">Quick Actions</div>
+              <button class="btn btn-secondary btn-block" style="margin-bottom:6px" id="btnHealth">&#127973; Health Check</button>
+              <button class="btn btn-secondary btn-block" style="margin-bottom:6px" id="btnAnalytics">&#128202; Analytics</button>
+              <button class="btn btn-secondary btn-block" id="btnApiKeys">&#128273; API Keys</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">SMS Forwarder Setup</div></div>
+          <div style="background:var(--bg3); padding:14px; border-radius:8px; font-family:monospace; font-size:12px; word-break:break-all" id="webhookUrlDisplay">
+            https://our-payment-gateway.onrender.com/webhook
+          </div>
+          <p style="color:var(--fg2); font-size:12px; margin-top:10px; line-height:1.6">
+            &#128241; <strong>SMS Forwarder App:</strong><br>
+            URL: <code id="smsForwarderUrl">https://our-payment-gateway.onrender.com/webhook</code><br>
+            Method: POST | Content-Type: application/json<br>
+            Body: <code>{"body":"{{message}}","from":"{{app_name}}","source":"NOTIFICATION"}</code>
+          </p>
+          <button class="btn btn-secondary copy-btn" style="margin-top:10px" id="btnCopyWebhook">&#128203; Copy URL</button>
+        </div>
+      </div>
+
+      <!-- TAB: BUILD -->
+      <div class="tab-content" id="tab-build">
+        <div class="header"><h1>&#128230; Settings</h1></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Appearance</div></div>
+            <div class="config-section">
+              <h3>Colors</h3>
+              <div style="display:flex; gap:12px; align-items:center">
+                <div><label class="form-label">Primary</label><input type="color" class="color-picker" id="primaryColor" value="#00d4ff"></div>
+                <div><label class="form-label">Success</label><input type="color" class="color-picker" id="successColor" value="#00ff88"></div>
+                <div><label class="form-label">Danger</label><input type="color" class="color-picker" id="dangerColor" value="#ff3366"></div>
+              </div>
+            </div>
+            <div class="config-section">
+              <h3>Options</h3>
+              <label class="checkbox-group" style="margin-bottom:6px"><input type="checkbox" id="showRevenue" checked> Show revenue</label>
+              <label class="checkbox-group" style="margin-bottom:6px"><input type="checkbox" id="autoRefresh" checked> Auto-refresh</label>
+              <label class="checkbox-group"><input type="checkbox" id="soundAlerts"> Sound alerts</label>
+            </div>
+            <button class="btn btn-primary btn-block" id="btnSaveAppearance">&#128190; Save</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Export / Import</div></div>
+            <div class="config-section">
+              <h3>Export</h3>
+              <button class="btn btn-secondary btn-block" style="margin-bottom:6px" id="btnExportConfig">&#128228; Config JSON</button>
+              <button class="btn btn-secondary btn-block" id="btnExportPayJson">&#128228; Payments JSON</button>
+            </div>
+            <div class="config-section">
+              <h3>Import</h3>
+              <input type="file" id="configFile" accept=".json" style="display:none">
+              <button class="btn btn-secondary btn-block" id="btnImportConfig">&#128229; Import Config</button>
+            </div>
+            <div class="config-section">
+              <h3>Reset</h3>
+              <button class="btn btn-danger btn-block" id="btnResetAll">&#9888;&#65039; Reset All</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">About</div></div>
+          <div style="color:var(--fg2); font-size:13px; line-height:1.7">
+            <p><strong>Version:</strong> 4.0.0 | <strong>Backend:</strong> Synex Pay</p>
+            <p><strong>Features:</strong> SMS Forwarder, Socket.io, Webhooks</p>
+            <p><strong>Merchant:</strong> <span id="aboutMerchant">Synex Pay</span></p>
+            <p><strong>UPI ID:</strong> <span id="aboutUpi">aqdaskhan03@fam</span></p>
+            <p><strong>Status:</strong> <span id="aboutConnected" style="color:var(--error)">&#10060; Offline</span></p>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Payment Detail Modal -->
+  <!-- Modal -->
   <div class="modal-overlay" id="paymentModal">
     <div class="modal">
       <div class="modal-header">
         <h3>Payment Details</h3>
-        <button class="close-btn" onclick="closeModal()">&times;</button>
+        <button class="close-btn" id="btnCloseModal">&times;</button>
       </div>
       <div class="modal-body" id="modalBody"></div>
       <div class="modal-footer" id="modalFooter"></div>
@@ -637,9 +652,9 @@
 
   <script>
     // ═══════════════════════════════════════════════════════════════════════
-    // GLOBAL STATE
+    // STATE
     // ═══════════════════════════════════════════════════════════════════════
-    const STATE = {
+    var STATE = {
       backendUrl: localStorage.getItem('synex_backend_url') || 'https://our-payment-gateway.onrender.com',
       apiKey: localStorage.getItem('synex_api_key') || '',
       adminKey: localStorage.getItem('synex_admin_key') || '',
@@ -653,28 +668,134 @@
       pollInterval: null,
       timerInterval: null,
       logs: [],
+      sidebarExpanded: false
     };
 
     // ═══════════════════════════════════════════════════════════════════════
     // INIT
     // ═══════════════════════════════════════════════════════════════════════
     document.addEventListener('DOMContentLoaded', function() {
+      // Load saved config
       document.getElementById('backendUrl').value = STATE.backendUrl;
       document.getElementById('apiKey').value = STATE.apiKey;
       document.getElementById('adminKey').value = STATE.adminKey;
       document.getElementById('webhookSecret').value = STATE.webhookSecret;
       updateWebhookDisplay();
+
+      // Bind all click events properly
+      bindEvents();
+
+      // Init
       initSocket();
       loadPayments();
       fetchHealth();
     });
+
+    function bindEvents() {
+      // Nav items
+      document.querySelectorAll('.nav-item').forEach(function(el) {
+        el.addEventListener('click', function() {
+          switchTab(this.dataset.tab);
+        });
+      });
+
+      // Extract tab
+      document.getElementById('btnResetPay').addEventListener('click', resetPaymentForm);
+      document.getElementById('btnCreatePay').addEventListener('click', createPayment);
+      document.getElementById('btnSimulate').addEventListener('click', simulatePayment);
+      document.getElementById('btnCancel').addEventListener('click', cancelPayment);
+      document.getElementById('payExpiry').addEventListener('input', function() {
+        document.getElementById('expiryVal').textContent = this.value + ' min';
+      });
+
+      // Manage tab
+      document.getElementById('btnRefresh').addEventListener('click', loadPayments);
+      document.getElementById('btnExportCsv').addEventListener('click', exportPayments);
+      document.getElementById('paySearch').addEventListener('input', searchPayments);
+      document.querySelectorAll('.filter-chip').forEach(function(el) {
+        el.addEventListener('click', function() {
+          filterPayments(this.dataset.filter);
+        });
+      });
+
+      // Push tab
+      document.getElementById('btnManualConfirm').addEventListener('click', manualConfirm);
+      document.getElementById('btnBulkConfirm').addEventListener('click', bulkConfirm);
+      document.getElementById('btnBulkExpire').addEventListener('click', bulkExpire);
+
+      // Cleanup tab
+      document.getElementById('btnCleanup').addEventListener('click', runCleanup);
+
+      // Backend tab
+      document.getElementById('btnSaveConfig').addEventListener('click', saveConfig);
+      document.getElementById('btnTestConn').addEventListener('click', testConnection);
+      document.getElementById('btnHealth').addEventListener('click', fetchHealth);
+      document.getElementById('btnAnalytics').addEventListener('click', fetchAnalytics);
+      document.getElementById('btnApiKeys').addEventListener('click', fetchApiKeys);
+      document.getElementById('btnToggleApiKey').addEventListener('click', toggleApiKeyVisibility);
+      document.getElementById('btnToggleAdminKey').addEventListener('click', toggleAdminKeyVisibility);
+      document.getElementById('btnCopyWebhook').addEventListener('click', copyWebhookUrl);
+
+      // Build tab
+      document.getElementById('btnSaveAppearance').addEventListener('click', saveAppearance);
+      document.getElementById('btnExportConfig').addEventListener('click', exportConfig);
+      document.getElementById('btnExportPayJson').addEventListener('click', exportPaymentsJson);
+      document.getElementById('btnImportConfig').addEventListener('click', function() {
+        document.getElementById('configFile').click();
+      });
+      document.getElementById('configFile').addEventListener('change', importConfig);
+      document.getElementById('btnResetAll').addEventListener('click', resetAllData);
+
+      // Modal
+      document.getElementById('btnCloseModal').addEventListener('click', closeModal);
+      document.getElementById('paymentModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+      });
+
+      // Payment link copy
+      document.getElementById('payLink').addEventListener('click', function() {
+        copyText(this.textContent);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SIDEBAR
+    // ═══════════════════════════════════════════════════════════════════════
+    function toggleSidebar() {
+      STATE.sidebarExpanded = !STATE.sidebarExpanded;
+      var sb = document.getElementById('sidebar');
+      if (STATE.sidebarExpanded) sb.classList.add('expanded');
+      else sb.classList.remove('expanded');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // TABS
+    // ═══════════════════════════════════════════════════════════════════════
+    function switchTab(tab) {
+      document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+      var activeNav = document.querySelector('.nav-item[data-tab="' + tab + '"]');
+      if (activeNav) activeNav.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+      var tabEl = document.getElementById('tab-' + tab);
+      if (tabEl) tabEl.classList.add('active');
+      if (tab === 'manage') loadPayments();
+      if (tab === 'cleanup') loadCleanupStats();
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // SOCKET.IO
     // ═══════════════════════════════════════════════════════════════════════
     function initSocket() {
       try {
-        STATE.socket = io(STATE.backendUrl, { transports: ['websocket', 'polling'], timeout: 10000 });
+        if (STATE.socket) { STATE.socket.disconnect(); STATE.socket = null; }
+
+        STATE.socket = io(STATE.backendUrl, {
+          transports: ['websocket', 'polling'],
+          timeout: 10000,
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 2000
+        });
 
         STATE.socket.on('connect', function() {
           STATE.socketConnected = true;
@@ -688,9 +809,14 @@
           updateSocketStatus('disconnected', 'Socket: Disconnected');
         });
 
+        STATE.socket.on('connect_error', function(err) {
+          updateSocketStatus('disconnected', 'Socket: Error');
+          console.log('Socket error:', err.message);
+        });
+
         STATE.socket.on('payment_success', function(data) {
           toast('Payment ' + data.paymentId + ' received &#8377;' + data.amount, 'success');
-          if (STATE.currentPayment && STATE.currentPayment.id === data.paymentId) {
+          if (STATE.currentPayment && STATE.currentPayment.paymentId === data.paymentId) {
             showPaymentSuccess(data);
           }
           loadPayments();
@@ -698,7 +824,7 @@
 
         STATE.socket.on('payment_expired', function(data) {
           toast('Payment ' + data.paymentId + ' expired', 'warning');
-          if (STATE.currentPayment && STATE.currentPayment.id === data.paymentId) {
+          if (STATE.currentPayment && STATE.currentPayment.paymentId === data.paymentId) {
             showPaymentExpired();
           }
           loadPayments();
@@ -710,58 +836,47 @@
         });
 
         STATE.socket.on('live_stats', function(data) {
-          document.getElementById('statsTotal').textContent = data.total;
-          document.getElementById('statsRevenue').textContent = '&#8377;' + (data.revenue || 0).toFixed(2);
+          document.getElementById('statsTotal').textContent = data.total || 0;
+          document.getElementById('statsRevenue').textContent = '&#8377;' + ((data.revenue || 0)).toFixed(2);
         });
 
         STATE.socket.on('sms_received', function(log) {
-          addLog('SMS received from ' + log.from + (log.matched ? ' &#8594; MATCHED!' : ''), log.matched ? 'success' : 'info');
-        });
-
-        STATE.socket.on('notification', function(n) {
-          toast(n.title + ': ' + n.message, n.severity === 'error' ? 'error' : n.severity === 'warning' ? 'warning' : 'info');
+          addLog('SMS from ' + log.from + (log.matched ? ' MATCHED!' : ''), log.matched ? 'success' : 'info');
         });
 
       } catch(e) {
-        updateSocketStatus('disconnected', 'Socket: Error');
+        console.error('Socket init error:', e);
+        updateSocketStatus('disconnected', 'Socket: Failed');
       }
     }
 
     function updateSocketStatus(cls, text) {
-      const el = document.getElementById('socketStatus');
+      var el = document.getElementById('socketStatus');
       el.className = 'socket-status ' + cls;
-      el.innerHTML = cls === 'connected' ? '&#9679; ' + text : '<span class="spinner" style="width:10px;height:10px;border-width:1px"></span> ' + text;
+      if (cls === 'connected') {
+        el.innerHTML = '&#9679; ' + text;
+      } else {
+        el.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1px"></span> ' + text;
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // TAB SWITCHING
-    // ═══════════════════════════════════════════════════════════════════════
-    function switchTab(tab) {
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.querySelector('.nav-item[data-tab="' + tab + '"]').classList.add('active');
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.getElementById('tab-' + tab).classList.add('active');
-      if (tab === 'manage') loadPayments();
-      if (tab === 'cleanup') loadCleanupStats();
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // API HELPERS
+    // API
     // ═══════════════════════════════════════════════════════════════════════
     async function api(endpoint, options) {
       options = options || {};
-      const url = STATE.backendUrl + endpoint;
-      const headers = { 'Content-Type': 'application/json' };
+      var url = STATE.backendUrl.replace(/\/$/, '') + endpoint;
+      var headers = { 'Content-Type': 'application/json' };
       if (STATE.apiKey) headers['X-Api-Key'] = STATE.apiKey;
       if (options.admin && STATE.adminKey) headers['X-Admin-Key'] = STATE.adminKey;
 
       try {
-        const res = await fetch(url, {
+        var res = await fetch(url, {
           method: options.method || 'GET',
           headers: headers,
           body: options.body ? JSON.stringify(options.body) : undefined,
         });
-        const data = await res.json();
+        var data = await res.json().catch(function() { return {}; });
         return { ok: res.ok, status: res.status, data: data };
       } catch(e) {
         return { ok: false, error: e.message };
@@ -769,27 +884,32 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // EXTRACT TAB — CREATE PAYMENT
+    // EXTRACT - CREATE PAYMENT
     // ═══════════════════════════════════════════════════════════════════════
     async function createPayment() {
-      const amount = parseFloat(document.getElementById('payAmount').value);
-      const note = document.getElementById('payNote').value;
-      const name = document.getElementById('payCustomerName').value;
-      const phone = document.getElementById('payCustomerPhone').value;
-      const email = document.getElementById('payCustomerEmail').value;
-      const expiry = parseInt(document.getElementById('payExpiry').value);
+      var amount = parseFloat(document.getElementById('payAmount').value);
+      var note = document.getElementById('payNote').value;
+      var name = document.getElementById('payCustomerName').value;
+      var phone = document.getElementById('payCustomerPhone').value;
+      var email = document.getElementById('payCustomerEmail').value;
+      var expiry = parseInt(document.getElementById('payExpiry').value);
 
-      if (!amount || amount < 1) { toast('Enter valid amount (min &#8377;1)', 'error'); return; }
+      if (!amount || amount < 1 || isNaN(amount)) {
+        toast('Enter valid amount (min &#8377;1)', 'error');
+        return;
+      }
 
-      setLoading('createPayBtn', 'createPaySpinner', 'createPayText', true);
+      setLoading('btnCreatePay', true);
 
-      const body = {
-        amount: amount, note: note, expiryMinutes: expiry,
+      var body = {
+        amount: amount,
+        note: note,
+        expiryMinutes: expiry,
         customer: { name: name, phone: phone, email: email }
       };
 
-      const res = await api('/api/v1/payment/create', { method: 'POST', body: body });
-      setLoading('createPayBtn', 'createPaySpinner', 'createPayText', false);
+      var res = await api('/api/v1/payment/create', { method: 'POST', body: body });
+      setLoading('btnCreatePay', false);
 
       if (!res.ok) {
         toast(res.data && res.data.error ? res.data.error : 'Failed to create payment', 'error');
@@ -800,7 +920,7 @@
       showQR(res.data);
       startPolling(res.data.paymentId);
       startTimer(res.data.expiresIn);
-      toast('Payment created! Scan QR to pay', 'success');
+      toast('Payment created! Scan QR', 'success');
     }
 
     function showQR(data) {
@@ -817,13 +937,14 @@
       document.getElementById('paytmBtn').href = data.upiIntent;
       document.getElementById('upiIntentBtn').href = data.upiIntent;
 
-      updateTimeline(data.paymentId, 'created', 'Payment created');
+      document.getElementById('paymentTimeline').innerHTML = '';
+      addTimeline('created', 'Payment created');
     }
 
     function startPolling(paymentId) {
       if (STATE.pollInterval) clearInterval(STATE.pollInterval);
       STATE.pollInterval = setInterval(async function() {
-        const res = await api('/api/v1/payment/status/' + paymentId);
+        var res = await api('/api/v1/payment/status/' + paymentId);
         if (res.ok && res.data.status === 'paid') {
           clearInterval(STATE.pollInterval);
           showPaymentSuccess(res.data);
@@ -836,38 +957,39 @@
 
     function startTimer(seconds) {
       if (STATE.timerInterval) clearInterval(STATE.timerInterval);
-      let remaining = seconds;
+      var remaining = seconds;
       STATE.timerInterval = setInterval(function() {
         remaining--;
-        const m = Math.floor(remaining / 60);
-        const s = remaining % 60;
-        document.getElementById('qrTimer').textContent = '&#9201; Expires in ' + m + ':' + String(s).padStart(2, '0');
+        var m = Math.floor(remaining / 60);
+        var s = remaining % 60;
+        var el = document.getElementById('qrTimer');
+        if (el) el.textContent = '&#9201; Expires in ' + m + ':' + String(s).padStart(2, '0');
         if (remaining <= 0) clearInterval(STATE.timerInterval);
       }, 1000);
     }
 
     function showPaymentSuccess(data) {
-      document.getElementById('activePaymentCard').innerHTML = `
-        <div style="text-align:center; padding:40px">
-          <div style="font-size:64px; margin-bottom:16px">&#9989;</div>
-          <h2 style="color:var(--success); margin-bottom:8px">Payment Received!</h2>
-          <p style="font-size:20px; font-weight:700">&#8377;${data.amount}</p>
-          <p style="color:var(--fg2); margin-top:8px">UTR: ${data.utrRef || 'N/A'}</p>
-          <p style="color:var(--fg2); font-size:12px">${new Date(data.paidAt).toLocaleString()}</p>
-          <button class="btn btn-primary" style="margin-top:20px" onclick="resetPaymentForm()">Create New</button>
-        </div>`;
-      updateTimeline(data.paymentId, 'success', 'Payment confirmed via ' + (data.confirmedBy || 'auto'));
+      document.getElementById('activePaymentCard').innerHTML =
+        '<div class="success-box">' +
+          '<div class="emoji">&#9989;</div>' +
+          '<h2>Payment Received!</h2>' +
+          '<p style="font-size:22px; font-weight:700">&#8377;' + data.amount + '</p>' +
+          '<p style="color:var(--fg2); margin-top:6px">UTR: ' + (data.utrRef || 'N/A') + '</p>' +
+          '<p style="color:var(--fg2); font-size:12px">' + new Date(data.paidAt).toLocaleString() + '</p>' +
+          '<button class="btn btn-primary" style="margin-top:16px" onclick="resetPaymentForm()">Create New</button>' +
+        '</div>';
+      addTimeline('success', 'Payment confirmed via ' + (data.confirmedBy || 'auto'));
       addLog('Payment ' + data.paymentId + ' confirmed &#8377;' + data.amount, 'success');
     }
 
     function showPaymentExpired() {
-      document.getElementById('activePaymentCard').innerHTML = `
-        <div style="text-align:center; padding:40px">
-          <div style="font-size:64px; margin-bottom:16px">&#9200;</div>
-          <h2 style="color:var(--warning); margin-bottom:8px">Payment Expired</h2>
-          <p style="color:var(--fg2)">The payment window has closed</p>
-          <button class="btn btn-primary" style="margin-top:20px" onclick="resetPaymentForm()">Create New</button>
-        </div>`;
+      document.getElementById('activePaymentCard').innerHTML =
+        '<div class="expired-box">' +
+          '<div class="emoji">&#9200;</div>' +
+          '<h2>Payment Expired</h2>' +
+          '<p style="color:var(--fg2)">The payment window has closed</p>' +
+          '<button class="btn btn-primary" style="margin-top:16px" onclick="resetPaymentForm()">Create New</button>' +
+        '</div>';
     }
 
     function resetPaymentForm() {
@@ -878,19 +1000,26 @@
       document.getElementById('payCustomerEmail').value = '';
       document.getElementById('qrCard').style.display = 'none';
       document.getElementById('activePaymentCard').style.display = 'none';
-      document.getElementById('activePaymentCard').innerHTML = `
-        <div class="card-header"><div class="card-title">&#9203; Waiting for Payment...</div>
-          <div class="socket-status disconnected" id="pollStatus"><span class="spinner" style="width:10px;height:10px;border-width:1px"></span> Polling...</div>
-        </div>
-        <div style="text-align:center; padding:40px">
-          <div style="font-size:48px; margin-bottom:16px">&#128242;</div>
-          <p style="color:var(--fg2); margin-bottom:8px">Scan QR code or use UPI app to pay</p>
-          <p style="font-size:14px; color:var(--fg2)">Auto-confirmation via SMS Forwarder active</p>
-          <div style="margin-top:20px">
-            <button class="btn btn-success" onclick="simulatePayment()">&#129514; Simulate Payment</button>
-            <button class="btn btn-danger" onclick="cancelPayment()" style="margin-left:8px">&#10060; Cancel</button>
-          </div>
-        </div>`;
+      document.getElementById('activePaymentCard').innerHTML =
+        '<div class="card-header"><div class="card-title">&#9203; Waiting for Payment...</div>' +
+          '<div class="socket-status disconnected" id="pollStatus"><span class="spinner" style="width:10px;height:10px;border-width:1px"></span> Polling</div>' +
+        '</div>' +
+        '<div class="waiting-box">' +
+          '<div class="emoji">&#128242;</div>' +
+          '<p>Scan QR code or use UPI app to pay</p>' +
+          '<p style="font-size:13px">Auto-confirmation via SMS Forwarder</p>' +
+          '<div style="margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap">' +
+            '<button class="btn btn-success" id="btnSimulate">&#129514; Simulate</button>' +
+            '<button class="btn btn-danger" id="btnCancel">&#10060; Cancel</button>' +
+          '</div>' +
+        '</div>';
+      // Re-bind events for recreated buttons
+      setTimeout(function() {
+        var sim = document.getElementById('btnSimulate');
+        var can = document.getElementById('btnCancel');
+        if (sim) sim.addEventListener('click', simulatePayment);
+        if (can) can.addEventListener('click', cancelPayment);
+      }, 50);
       if (STATE.pollInterval) clearInterval(STATE.pollInterval);
       if (STATE.timerInterval) clearInterval(STATE.timerInterval);
       STATE.currentPayment = null;
@@ -898,7 +1027,7 @@
 
     async function simulatePayment() {
       if (!STATE.currentPayment) return;
-      const res = await api('/api/v1/payment/simulate/' + STATE.currentPayment.paymentId, { method: 'POST' });
+      var res = await api('/api/v1/payment/simulate/' + STATE.currentPayment.paymentId, { method: 'POST' });
       if (res.ok) {
         toast('Simulation started! Wait ' + Math.floor(res.data.delay / 1000) + 's', 'info');
       } else {
@@ -913,17 +1042,17 @@
       toast('Payment cancelled', 'info');
     }
 
-    function updateTimeline(id, type, text) {
-      const tl = document.getElementById('paymentTimeline');
-      const time = new Date().toLocaleTimeString();
+    function addTimeline(type, text) {
+      var tl = document.getElementById('paymentTimeline');
+      var time = new Date().toLocaleTimeString();
       tl.innerHTML += '<div class="timeline-item ' + type + '"><div class="timeline-time">' + time + '</div><div class="timeline-text">' + text + '</div></div>';
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // MANAGE TAB
+    // MANAGE
     // ═══════════════════════════════════════════════════════════════════════
     async function loadPayments() {
-      const res = await api('/api/v1/payments?page=' + STATE.currentPage);
+      var res = await api('/api/v1/payments?page=' + STATE.currentPage);
       if (!res.ok) { toast('Failed to load payments', 'error'); return; }
       STATE.payments = res.data.data || [];
       renderPayments();
@@ -931,15 +1060,15 @@
     }
 
     function renderPayments() {
-      const tbody = document.getElementById('paymentsTable');
-      const empty = document.getElementById('paymentsEmpty');
-      let filtered = STATE.payments;
+      var tbody = document.getElementById('paymentsTable');
+      var empty = document.getElementById('paymentsEmpty');
+      var filtered = STATE.payments;
 
       if (STATE.currentFilter !== 'all') {
         filtered = filtered.filter(function(p) { return p.status === STATE.currentFilter; });
       }
 
-      const search = document.getElementById('paySearch').value.toLowerCase();
+      var search = document.getElementById('paySearch').value.toLowerCase();
       if (search) {
         filtered = filtered.filter(function(p) {
           return (p.id && p.id.toLowerCase().includes(search)) ||
@@ -964,7 +1093,7 @@
           '<td><span class="badge badge-' + p.status + '">' + p.status + '</span></td>' +
           '<td>' + (p.customer && p.customer.name ? p.customer.name : '-') + '</td>' +
           '<td><code style="font-size:11px">' + (p.utrRef || '-') + '</code></td>' +
-          '<td style="font-size:12px; color:var(--fg2)">' + new Date(p.createdAt).toLocaleString() + '</td>' +
+          '<td style="font-size:11px; color:var(--fg2)">' + new Date(p.createdAt).toLocaleString() + '</td>' +
           '<td>' +
             '<div class="action-btns">' +
               '<button class="btn btn-secondary" onclick="viewPayment('' + p.id + '')">&#128065;</button>' +
@@ -975,23 +1104,24 @@
         '</tr>';
       }).join('');
 
-      const totalPages = res.data.totalPages || 1;
-      let pagHtml = '';
-      for (let i = 1; i <= totalPages; i++) {
+      var totalPages = res.data.totalPages || 1;
+      var pagHtml = '';
+      for (var i = 1; i <= totalPages; i++) {
         pagHtml += '<button class="page-btn ' + (i === STATE.currentPage ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
       }
       document.getElementById('paymentsPagination').innerHTML = pagHtml;
 
-      const pending = STATE.payments.filter(function(p) { return p.status === 'pending'; }).length;
-      const badge = document.getElementById('pendingBadge');
+      var pending = STATE.payments.filter(function(p) { return p.status === 'pending'; }).length;
+      var badge = document.getElementById('pendingBadge');
       badge.textContent = pending;
-      badge.style.display = pending > 0 ? 'block' : 'none';
+      badge.classList.toggle('show', pending > 0);
     }
 
     function filterPayments(status) {
       STATE.currentFilter = status;
       document.querySelectorAll('.filter-chip').forEach(function(c) { c.classList.remove('active'); });
-      document.querySelector('.filter-chip[data-filter="' + status + '"]').classList.add('active');
+      var chip = document.querySelector('.filter-chip[data-filter="' + status + '"]');
+      if (chip) chip.classList.add('active');
       renderPayments();
     }
 
@@ -999,136 +1129,136 @@
     function goPage(p) { STATE.currentPage = p; loadPayments(); }
 
     function updateStats() {
-      const all = STATE.payments;
-      const paid = all.filter(function(p) { return p.status === 'paid'; });
-      const pending = all.filter(function(p) { return p.status === 'pending'; });
-      const failed = all.filter(function(p) { return p.status === 'failed' || p.status === 'expired'; });
-      const revenue = paid.reduce(function(a, p) { return a + (p.amount || 0); }, 0);
+      var all = STATE.payments;
+      var paid = all.filter(function(p) { return p.status === 'paid'; });
+      var pending = all.filter(function(p) { return p.status === 'pending'; });
+      var failed = all.filter(function(p) { return p.status === 'failed' || p.status === 'expired'; });
+      var revenue = paid.reduce(function(a, p) { return a + (p.amount || 0); }, 0);
 
       document.getElementById('statTotal').textContent = all.length;
       document.getElementById('statPaid').textContent = paid.length;
-      document.getElementById('statPaidAmt').textContent = '&#8377;' + revenue.toFixed(2);
       document.getElementById('statPending').textContent = pending.length;
       document.getElementById('statFailed').textContent = failed.length;
     }
 
     async function viewPayment(id) {
-      const res = await api('/api/v1/payment/' + id);
+      var res = await api('/api/v1/payment/' + id);
       if (!res.ok) { toast('Payment not found', 'error'); return; }
-      const p = res.data.payment;
-      document.getElementById('modalBody').innerHTML = `
-        <div style="margin-bottom:16px"><span class="badge badge-${p.status}">${p.status}</span></div>
-        <div class="grid-2">
-          <div><div class="form-label">Payment ID</div><div class="payment-id-box">${p.id}</div></div>
-          <div><div class="form-label">Amount</div><div style="font-size:24px; font-weight:700">&#8377;${p.amount ? p.amount.toFixed(2) : '0.00'}</div></div>
-        </div>
-        <div style="margin-top:16px"><div class="form-label">UPI ID</div><div>${p.upiId}</div></div>
-        <div style="margin-top:12px"><div class="form-label">UTR Reference</div><div>${p.utrRef || 'N/A'}</div></div>
-        <div style="margin-top:12px"><div class="form-label">Timeline</div>
-          <div class="timeline">${(p.timeline || []).map(function(t) {
+      var p = res.data.payment;
+      document.getElementById('modalBody').innerHTML =
+        '<div style="margin-bottom:12px"><span class="badge badge-' + p.status + '">' + p.status + '</span></div>' +
+        '<div class="grid-2">' +
+          '<div><div class="form-label">Payment ID</div><div class="payment-id-box">' + p.id + '</div></div>' +
+          '<div><div class="form-label">Amount</div><div style="font-size:22px; font-weight:700">&#8377;' + (p.amount ? p.amount.toFixed(2) : '0.00') + '</div></div>' +
+        '</div>' +
+        '<div style="margin-top:12px"><div class="form-label">UPI ID</div><div>' + p.upiId + '</div></div>' +
+        '<div style="margin-top:10px"><div class="form-label">UTR</div><div>' + (p.utrRef || 'N/A') + '</div></div>' +
+        '<div style="margin-top:10px"><div class="form-label">Timeline</div><div class="timeline">' +
+          (p.timeline || []).map(function(t) {
             return '<div class="timeline-item ' + (t.event === 'paid' ? 'success' : t.event === 'failed' ? 'error' : '') + '">' +
               '<div class="timeline-time">' + new Date(t.timestamp).toLocaleString() + '</div>' +
               '<div class="timeline-text">' + t.event + ' &#8212; ' + t.note + '</div>' +
             '</div>';
-          }).join('')}</div>
-        </div>
-      `;
-      document.getElementById('modalFooter').innerHTML = `
-        ${p.status === 'pending' ? '<button class="btn btn-success" onclick="quickConfirm('' + p.id + ''); closeModal()">&#9989; Confirm</button>' : ''}
-        ${p.status === 'pending' ? '<button class="btn btn-danger" onclick="quickFail('' + p.id + ''); closeModal()">&#10060; Fail</button>' : ''}
-        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
-      `;
+          }).join('') +
+        '</div></div>';
+
+      document.getElementById('modalFooter').innerHTML =
+        (p.status === 'pending' ? '<button class="btn btn-success" onclick="quickConfirm('' + p.id + ''); closeModal()">&#9989; Confirm</button>' : '') +
+        (p.status === 'pending' ? '<button class="btn btn-danger" onclick="quickFail('' + p.id + ''); closeModal()">&#10060; Fail</button>' : '') +
+        '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+
       document.getElementById('paymentModal').classList.add('active');
     }
 
     async function quickConfirm(id) {
-      const res = await api('/api/v1/admin/confirm/' + id, { method: 'POST', admin: true, body: { note: 'Quick confirm from dashboard' } });
+      var res = await api('/api/v1/admin/confirm/' + id, { method: 'POST', admin: true, body: { note: 'Quick confirm' } });
       if (res.ok) { toast('Payment confirmed', 'success'); loadPayments(); }
       else { toast(res.data && res.data.error ? res.data.error : 'Failed', 'error'); }
     }
 
     async function quickFail(id) {
-      const res = await api('/api/v1/admin/fail/' + id, { method: 'POST', admin: true, body: { reason: 'Manual fail from dashboard' } });
-      if (res.ok) { toast('Payment marked failed', 'warning'); loadPayments(); }
+      var res = await api('/api/v1/admin/fail/' + id, { method: 'POST', admin: true, body: { reason: 'Manual fail' } });
+      if (res.ok) { toast('Payment failed', 'warning'); loadPayments(); }
       else { toast(res.data && res.data.error ? res.data.error : 'Failed', 'error'); }
     }
 
     function closeModal() { document.getElementById('paymentModal').classList.remove('active'); }
 
     async function exportPayments() {
-      const res = await api('/api/v1/admin/export/payments.csv', { admin: true });
+      if (!STATE.adminKey) { toast('Admin key required', 'error'); return; }
+      var res = await fetch(STATE.backendUrl + '/api/v1/admin/export/payments.csv', {
+        headers: { 'X-Admin-Key': STATE.adminKey }
+      });
       if (res.ok) {
-        const blob = new Blob([await (await fetch(STATE.backendUrl + '/api/v1/admin/export/payments.csv', { headers: { 'X-Admin-Key': STATE.adminKey } })).text()], { type: 'text/csv' });
-        const a = document.createElement('a');
+        var blob = await res.blob();
+        var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'payments_' + new Date().toISOString().slice(0, 10) + '.csv';
         a.click();
         toast('CSV exported', 'success');
+      } else {
+        toast('Export failed', 'error');
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PUSH TAB
+    // PUSH
     // ═══════════════════════════════════════════════════════════════════════
     async function manualConfirm() {
-      const id = document.getElementById('pushPaymentId').value.trim();
-      const utr = document.getElementById('pushUtr').value.trim();
-      const note = document.getElementById('pushNote').value.trim();
+      var id = document.getElementById('pushPaymentId').value.trim();
+      var utr = document.getElementById('pushUtr').value.trim();
+      var note = document.getElementById('pushNote').value.trim();
       if (!id) { toast('Enter Payment ID', 'error'); return; }
 
-      const res = await api('/api/v1/admin/confirm/' + id, { method: 'POST', admin: true, body: { utrRef: utr, note: note || 'Manual verification' } });
+      var res = await api('/api/v1/admin/confirm/' + id, {
+        method: 'POST', admin: true,
+        body: { utrRef: utr, note: note || 'Manual verification' }
+      });
       if (res.ok) {
-        toast('Payment confirmed manually', 'success');
-        addLog('Manual confirm: ' + id + (utr ? ' UTR:' + utr : ''), 'success');
+        toast('Payment confirmed', 'success');
+        addLog('Manual: ' + id + (utr ? ' UTR:' + utr : ''), 'success');
         document.getElementById('pushPaymentId').value = '';
         document.getElementById('pushUtr').value = '';
         document.getElementById('pushNote').value = '';
         loadPayments();
       } else {
-        toast(res.data && res.data.error ? res.data.error : 'Failed to confirm', 'error');
+        toast(res.data && res.data.error ? res.data.error : 'Failed', 'error');
       }
     }
 
     async function bulkConfirm() {
-      const ids = document.getElementById('bulkIds').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      var ids = document.getElementById('bulkIds').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       if (!ids.length) { toast('Enter payment IDs', 'error'); return; }
-
-      const res = await api('/api/v1/admin/bulk-confirm', { method: 'POST', admin: true, body: { ids: ids } });
+      var res = await api('/api/v1/admin/bulk-confirm', { method: 'POST', admin: true, body: { ids: ids } });
       if (res.ok) {
-        toast('Bulk confirm: ' + res.data.results.confirmed.length + ' done, ' + res.data.results.failed.length + ' failed', 'success');
-        addLog('Bulk confirm: ' + ids.length + ' payments', 'success');
+        toast('Confirmed: ' + res.data.results.confirmed.length, 'success');
+        addLog('Bulk confirm: ' + ids.length, 'success');
         document.getElementById('bulkIds').value = '';
         loadPayments();
-      } else {
-        toast('Bulk confirm failed', 'error');
-      }
+      } else { toast('Bulk confirm failed', 'error'); }
     }
 
     async function bulkExpire() {
-      const ids = document.getElementById('bulkIds').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      var ids = document.getElementById('bulkIds').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       if (!ids.length) { toast('Enter payment IDs', 'error'); return; }
-
-      const res = await api('/api/v1/admin/bulk-expire', { method: 'POST', admin: true, body: { ids: ids } });
+      var res = await api('/api/v1/admin/bulk-expire', { method: 'POST', admin: true, body: { ids: ids } });
       if (res.ok) {
-        toast('Bulk expire: ' + res.data.results.expired.length + ' done', 'warning');
-        addLog('Bulk expire: ' + ids.length + ' payments', 'warn');
+        toast('Expired: ' + res.data.results.expired.length, 'warning');
+        addLog('Bulk expire: ' + ids.length, 'warn');
         document.getElementById('bulkIds').value = '';
         loadPayments();
-      } else {
-        toast('Bulk expire failed', 'error');
-      }
+      } else { toast('Bulk expire failed', 'error'); }
     }
 
     function addLog(msg, type) {
-      const time = new Date().toLocaleTimeString();
-      const log = { msg: msg, type: type || 'info', time: time };
-      STATE.logs.unshift(log);
+      var time = new Date().toLocaleTimeString();
+      STATE.logs.unshift({ msg: msg, type: type || 'info', time: time });
       if (STATE.logs.length > 50) STATE.logs.pop();
       renderLogs();
     }
 
     function renderLogs() {
-      const container = document.getElementById('pushLogs');
+      var container = document.getElementById('pushLogs');
       if (!container) return;
       container.innerHTML = STATE.logs.map(function(l) {
         return '<div class="log-entry ' + l.type + '"><span class="log-time">' + l.time + '</span> ' + l.msg + '</div>';
@@ -1136,57 +1266,50 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // CLEANUP TAB
+    // CLEANUP
     // ═══════════════════════════════════════════════════════════════════════
     async function loadCleanupStats() {
-      const res = await api('/api/v1/analytics/summary');
+      var res = await api('/api/v1/analytics/summary');
       if (!res.ok) return;
-      const data = res.data;
-      document.getElementById('cleanupStats').innerHTML = `
-        <div class="grid-2">
-          <div class="stat-card"><div class="stat-label">Total Payments</div><div class="stat-value">${data.allTime ? data.allTime.created : 0}</div></div>
-          <div class="stat-card paid"><div class="stat-label">Paid</div><div class="stat-value">${data.allTime ? data.allTime.paid : 0}</div></div>
-          <div class="stat-card pending"><div class="stat-label">Pending</div><div class="stat-value">${data.allTime ? data.allTime.pending : 0}</div></div>
-          <div class="stat-card failed"><div class="stat-label">Expired</div><div class="stat-value">${data.allTime ? data.allTime.expired : 0}</div></div>
-        </div>
-        <div style="margin-top:16px; font-size:13px; color:var(--fg2)">
-          <p>Today: ${data.today ? data.today.created : 0} created, ${data.today ? data.today.paid : 0} paid</p>
-          <p>Revenue: &#8377;${data.allTime ? data.allTime.revenue.toFixed(2) : '0.00'}</p>
-        </div>
-      `;
+      var data = res.data;
+      document.getElementById('cleanupStats').innerHTML =
+        '<div class="grid-2">' +
+          '<div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">' + (data.allTime ? data.allTime.created : 0) + '</div></div>' +
+          '<div class="stat-card paid"><div class="stat-label">Paid</div><div class="stat-value">' + (data.allTime ? data.allTime.paid : 0) + '</div></div>' +
+          '<div class="stat-card pending"><div class="stat-label">Pending</div><div class="stat-value">' + (data.allTime ? data.allTime.pending : 0) + '</div></div>' +
+          '<div class="stat-card failed"><div class="stat-label">Expired</div><div class="stat-value">' + (data.allTime ? data.allTime.expired : 0) + '</div></div>' +
+        '</div>' +
+        '<div style="margin-top:12px; font-size:12px; color:var(--fg2)">' +
+          '<p>Today: ' + (data.today ? data.today.created : 0) + ' created, ' + (data.today ? data.today.paid : 0) + ' paid</p>' +
+          '<p>Revenue: &#8377;' + (data.allTime ? data.allTime.revenue.toFixed(2) : '0.00') + '</p>' +
+        '</div>';
     }
 
     async function runCleanup() {
-      const days = parseInt(document.getElementById('cleanupDays').value);
-      const expireChecked = document.getElementById('cleanupExpired').checked;
-      const failChecked = document.getElementById('cleanupFailed').checked;
-      const pendingChecked = document.getElementById('cleanupPending').checked;
-
+      var days = parseInt(document.getElementById('cleanupDays').value);
+      var expireChecked = document.getElementById('cleanupExpired').checked;
+      var failChecked = document.getElementById('cleanupFailed').checked;
+      var pendingChecked = document.getElementById('cleanupPending').checked;
       if (!expireChecked && !failChecked && !pendingChecked) { toast('Select at least one status', 'error'); return; }
 
-      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const all = Array.from(STATE.payments);
-      let toDelete = [];
-
-      if (expireChecked) toDelete = toDelete.concat(all.filter(function(p) { return p.status === 'expired' && p.createdAt < cutoff; }));
-      if (failChecked) toDelete = toDelete.concat(all.filter(function(p) { return p.status === 'failed' && p.createdAt < cutoff; }));
-      if (pendingChecked) toDelete = toDelete.concat(all.filter(function(p) { return p.status === 'pending' && p.createdAt < cutoff; }));
+      var cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      var toDelete = [];
+      if (expireChecked) toDelete = toDelete.concat(STATE.payments.filter(function(p) { return p.status === 'expired' && p.createdAt < cutoff; }));
+      if (failChecked) toDelete = toDelete.concat(STATE.payments.filter(function(p) { return p.status === 'failed' && p.createdAt < cutoff; }));
+      if (pendingChecked) toDelete = toDelete.concat(STATE.payments.filter(function(p) { return p.status === 'pending' && p.createdAt < cutoff; }));
 
       if (!toDelete.length) { toast('No payments to cleanup', 'info'); return; }
-
-      const ids = toDelete.map(function(p) { return p.id; });
-      const res = await api('/api/v1/admin/bulk-expire', { method: 'POST', admin: true, body: { ids: ids } });
+      var ids = toDelete.map(function(p) { return p.id; });
+      var res = await api('/api/v1/admin/bulk-expire', { method: 'POST', admin: true, body: { ids: ids } });
       if (res.ok) {
-        toast('Cleanup done: ' + res.data.results.expired.length + ' payments', 'success');
-        addLog('Cleanup: ' + res.data.results.expired.length + ' old payments removed', 'success');
+        toast('Cleanup: ' + res.data.results.expired.length + ' payments', 'success');
+        addLog('Cleanup: ' + res.data.results.expired.length + ' removed', 'success');
         loadPayments();
-      } else {
-        toast('Cleanup failed', 'error');
-      }
+      } else { toast('Cleanup failed', 'error'); }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BACKEND TAB
+    // BACKEND
     // ═══════════════════════════════════════════════════════════════════════
     function saveConfig() {
       STATE.backendUrl = document.getElementById('backendUrl').value.trim();
@@ -1200,27 +1323,27 @@
       localStorage.setItem('synex_webhook_secret', STATE.webhookSecret);
 
       updateWebhookDisplay();
-      toast('Config saved! Reconnecting...', 'success');
+      toast('Config saved!', 'success');
       initSocket();
     }
 
     function updateWebhookDisplay() {
-      const url = STATE.backendUrl + '/webhook';
+      var url = STATE.backendUrl.replace(/\/$/, '') + '/webhook';
       document.getElementById('webhookUrlDisplay').textContent = url;
       document.getElementById('smsForwarderUrl').textContent = url;
     }
 
     async function testConnection() {
-      const res = await api('/health');
-      const icon = document.getElementById('connIcon');
-      const text = document.getElementById('connText');
-      const detail = document.getElementById('connDetail');
+      var res = await api('/health');
+      var icon = document.getElementById('connIcon');
+      var text = document.getElementById('connText');
+      var detail = document.getElementById('connDetail');
 
       if (res.ok && res.data.success) {
         icon.textContent = '&#9989;';
         text.textContent = 'Connected';
         text.style.color = 'var(--success)';
-        detail.textContent = 'Version: ' + res.data.version + ' | Uptime: ' + res.data.uptime;
+        detail.textContent = 'v' + res.data.version + ' | ' + res.data.uptime;
         document.getElementById('aboutConnected').innerHTML = '&#9989; Connected';
         document.getElementById('aboutConnected').style.color = 'var(--success)';
         toast('Backend connected!', 'success');
@@ -1228,20 +1351,22 @@
         icon.textContent = '&#10060;';
         text.textContent = 'Failed';
         text.style.color = 'var(--error)';
-        detail.textContent = res.error || 'Check URL and try again';
+        detail.textContent = res.error || 'Check URL';
         toast('Connection failed', 'error');
       }
     }
 
     async function fetchHealth() {
-      const res = await api('/health');
+      var res = await api('/health');
       if (res.ok) {
-        const d = res.data;
+        var d = res.data;
         document.getElementById('backendStatus').textContent = d.status;
         document.getElementById('backendDot').className = 'status-dot';
         document.getElementById('aboutMerchant').textContent = d.gateway.merchantName;
         document.getElementById('aboutUpi').textContent = d.gateway.defaultUpiId;
-        toast('Health: ' + d.status + ' | Payments: ' + d.stats.totalPayments, 'info');
+        document.getElementById('statsTotal').textContent = d.stats.totalPayments;
+        document.getElementById('statsRevenue').textContent = '&#8377;' + d.stats.totalRevenue.toFixed(2);
+        toast('Health: ' + d.status, 'info');
       } else {
         document.getElementById('backendStatus').textContent = 'Offline';
         document.getElementById('backendDot').className = 'status-dot offline';
@@ -1250,44 +1375,39 @@
     }
 
     async function fetchAnalytics() {
-      const res = await api('/api/v1/analytics');
+      var res = await api('/api/v1/analytics');
       if (res.ok) {
-        toast('Analytics loaded! Revenue: &#8377;' + res.data.overview.revenue.toFixed(2), 'success');
-      } else {
-        toast('Failed to load analytics', 'error');
-      }
+        toast('Revenue: &#8377;' + res.data.overview.revenue.toFixed(2), 'success');
+      } else { toast('Analytics failed', 'error'); }
     }
 
     async function fetchApiKeys() {
-      const res = await api('/api/v1/admin/keys', { admin: true });
-      if (res.ok) {
-        toast('API Keys: ' + res.data.total + ' active', 'info');
-      } else {
-        toast('Failed to fetch keys', 'error');
-      }
+      var res = await api('/api/v1/admin/keys', { admin: true });
+      if (res.ok) { toast('Keys: ' + res.data.total, 'info'); }
+      else { toast('Keys failed', 'error'); }
     }
 
     function toggleApiKeyVisibility() {
-      const el = document.getElementById('apiKey');
+      var el = document.getElementById('apiKey');
       el.type = el.type === 'password' ? 'text' : 'password';
     }
 
     function toggleAdminKeyVisibility() {
-      const el = document.getElementById('adminKey');
+      var el = document.getElementById('adminKey');
       el.type = el.type === 'password' ? 'text' : 'password';
     }
 
     function copyWebhookUrl() {
-      copyText(STATE.backendUrl + '/webhook');
+      copyText(STATE.backendUrl.replace(/\/$/, '') + '/webhook');
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // FRONTEND BUILD TAB
+    // BUILD
     // ═══════════════════════════════════════════════════════════════════════
     function saveAppearance() {
-      const primary = document.getElementById('primaryColor').value;
-      const success = document.getElementById('successColor').value;
-      const danger = document.getElementById('dangerColor').value;
+      var primary = document.getElementById('primaryColor').value;
+      var success = document.getElementById('successColor').value;
+      var danger = document.getElementById('dangerColor').value;
       document.documentElement.style.setProperty('--accent', primary);
       document.documentElement.style.setProperty('--success', success);
       document.documentElement.style.setProperty('--error', danger);
@@ -1295,15 +1415,15 @@
     }
 
     function exportConfig() {
-      const config = {
+      var config = {
         backendUrl: STATE.backendUrl,
         apiKey: STATE.apiKey,
         adminKey: STATE.adminKey,
         webhookSecret: STATE.webhookSecret,
         exportedAt: new Date().toISOString()
       };
-      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
+      var blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'synex_config_' + new Date().toISOString().slice(0, 10) + '.json';
       a.click();
@@ -1311,43 +1431,44 @@
     }
 
     async function exportPaymentsJson() {
-      const res = await api('/api/v1/admin/export/payments.json', { admin: true });
+      if (!STATE.adminKey) { toast('Admin key required', 'error'); return; }
+      var res = await fetch(STATE.backendUrl + '/api/v1/admin/export/payments.json', {
+        headers: { 'X-Admin-Key': STATE.adminKey }
+      });
       if (res.ok) {
-        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
+        var blob = await res.blob();
+        var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'payments_' + new Date().toISOString().slice(0, 10) + '.json';
         a.click();
         toast('Payments exported', 'success');
-      }
+      } else { toast('Export failed', 'error'); }
     }
 
     function importConfig(event) {
-      const file = event.target.files[0];
+      var file = event.target.files[0];
       if (!file) return;
-      const reader = new FileReader();
+      var reader = new FileReader();
       reader.onload = function(e) {
         try {
-          const config = JSON.parse(e.target.result);
+          var config = JSON.parse(e.target.result);
           if (config.backendUrl) document.getElementById('backendUrl').value = config.backendUrl;
           if (config.apiKey) document.getElementById('apiKey').value = config.apiKey;
           if (config.adminKey) document.getElementById('adminKey').value = config.adminKey;
           if (config.webhookSecret) document.getElementById('webhookSecret').value = config.webhookSecret;
           saveConfig();
           toast('Config imported!', 'success');
-        } catch(err) {
-          toast('Invalid config file', 'error');
-        }
+        } catch(err) { toast('Invalid file', 'error'); }
       };
       reader.readAsText(file);
     }
 
     function resetAllData() {
-      if (!confirm('WARNING: This will clear all local data. Continue?')) return;
+      if (!confirm('Clear all data?')) return;
       localStorage.clear();
       STATE.payments = [];
       STATE.logs = [];
-      toast('All data reset. Reloading...', 'warning');
+      toast('Reset done. Reloading...', 'warning');
       setTimeout(function() { location.reload(); }, 1500);
     }
 
@@ -1356,23 +1477,31 @@
     // ═══════════════════════════════════════════════════════════════════════
     function toast(msg, type) {
       type = type || 'info';
-      const container = document.getElementById('toastContainer');
-      const el = document.createElement('div');
+      var container = document.getElementById('toastContainer');
+      var el = document.createElement('div');
       el.className = 'toast toast-' + type;
-      const icon = type === 'success' ? '&#9989;' : type === 'error' ? '&#10060;' : type === 'warning' ? '&#9888;&#65039;' : '&#8505;&#65039;';
+      var icon = type === 'success' ? '&#9989;' : type === 'error' ? '&#10060;' : type === 'warning' ? '&#9888;&#65039;' : '&#8505;&#65039;';
       el.innerHTML = icon + ' ' + msg;
       container.appendChild(el);
-      setTimeout(function() { el.style.opacity = '0'; el.style.transform = 'translateX(100%)'; setTimeout(function() { el.remove(); }, 300); }, 4000);
+      setTimeout(function() {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(100%)';
+        setTimeout(function() { el.remove(); }, 300);
+      }, 4000);
     }
 
     function copyText(text) {
       navigator.clipboard.writeText(text).then(function() { toast('Copied!', 'success'); });
     }
 
-    function setLoading(btnId, spinnerId, textId, loading) {
-      document.getElementById(btnId).disabled = loading;
-      document.getElementById(spinnerId).style.display = loading ? 'inline' : 'none';
-      document.getElementById(textId).style.display = loading ? 'none' : 'inline';
+    function setLoading(btnId, loading) {
+      var btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.disabled = loading;
+      var spinner = btn.querySelector('.spinner');
+      var text = btn.querySelector('span:last-child');
+      if (spinner) spinner.parentElement.style.display = loading ? 'inline' : 'none';
+      if (text) text.style.display = loading ? 'none' : 'inline';
     }
   </script>
 </body>
